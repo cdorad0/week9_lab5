@@ -23,25 +23,6 @@ successfully push to GitHub.
 
 # Part 2: Some Words of Advice
 
-Part of learning to program is learning from a variety of resources. Thus, I
-expect you will use resources that you find on the internet. There is, however,
-an important balance between copying someone else's code and *using their code to learn*.  
-
-Therefore, if you use external resources, I want to know about it.
-
--   If you used Google, you are expected to "inform" me of any resources you
-used by **pasting the link to the resource in a code comment next to where you used that resource**.
-
--   If you used ChatGPT, you are expected to "inform" me of the assistance you
-received by (1) indicating somewhere in the problem that you used ChatGPT 
-(e.g., below the question prompt or as a code comment), and (2) downloading and
-including the `.txt` file containing your **entire** conversation with ChatGPT.
-
-Additionally, you are permitted and encouraged to work with your peers as you
-complete lab assignments, but **you are expected to do your own work**. Copying
-from each other is cheating, and letting people copy from you is also cheating.
-Please don't do either of those things.
-
 ## Setting Up Your Code Chunks
 
 -   The first chunk of this Quarto document should be used to *declare your libraries* (probably only `tidyverse` for now).
@@ -124,16 +105,14 @@ included in the `teacher_evals_codebook.pdf`.
 
 ```{r}
 #| label: setup
-# code chunk for loading packages
-
+library(tidyverse)
 ```
 
 **2. Load in the `teacher_evals` data.** 
 
 ```{r}
 #| label: load-data
-# code chunk for importing the data
-
+evals <- read.csv("~/Documents/STATS_210_Spring_25/Labs/week9_lab5/data-raw/teacher_evals.csv")
 ```
 
 ### Data Inspection + Summary
@@ -142,17 +121,24 @@ included in the `teacher_evals_codebook.pdf`.
 
 ```{r}
 #| label: explore-data
-# you may want to use code to answer this question
-
+dim(evals)
+summary(evals)
 ```
+
+> This dataset contains student evaluations collected from students at a 
+University in Poland. There are 22 variables included in the dataset with 
+8,015 observations. Data types include characters, integers, and doubles. 
+Student grades show to have the most variables associated it.
+
 
 **4. What is the unit of observation (i.e. a single row in the dataset) identified by?**
 
 ```{r}
-#| label: row-identification
-# you may want to use code to answer this question
-
+evals
 ```
+
+> A single row in the dataset represents a summary of responses for all students for a particular course, teacher, and question. 
+
 
 **5. Use _one_ `dplyr` pipeline to clean the data by:**
 
@@ -165,41 +151,74 @@ included in the `teacher_evals_codebook.pdf`.
 
 ```{r}
 #| label: data-cleaning
-# code chunk for Q4
+teacher_evals_clean <- evals |>
+  rename(sex = gender) |> 
+  filter(no_participants > 10) |>
+  mutate(teacher_id = as.character(teacher_id)) |>
+  select(course_id, teacher_id, question_no, no_participants, resp_share, 
+         SET_score_avg, percent_failed_cur, academic_degree, seniority, sex) 
 
+write_csv(teacher_evals_clean, "~/Documents/STATS_210_Spring_25/Labs/week9_lab5/data-clean/
+teacher_evals_clean.csv")
 ```
+
 
 **6. How many unique instructors and unique courses are present in the cleaned dataset?**
 
 ```{r}
 #| label: unique-courses
-# code chunk for Q5
-
+n_distinct(teacher_evals_clean$teacher_id)
+n_distinct(teacher_evals_clean$course_id)
 ```
+
+> There are 294 unique instructors and 921 unique courses present in 
+the cleaned dataset.
+
 
 **7. One teacher-course combination has some missing values, coded as `NA`. Which instructor has these missing values? Which course? What variable are the missing values in?**
 
 ```{r}
 #| label: uncovering-missing-values
-# code chunk for Q6
-
+teacher_evals_clean |> 
+  filter(if_any(everything(), is.na))
 ```
+
+> Instructor with ID 56347 has missing values in the dataset for the course ID 
+PAB3SE004PA. These missing values appear for the `percent_failed_cur` variable. 
+
 
 **8. What are the demographics of the instructors in this study? Investigate the variables `academic_degree`, `seniority`, and `sex` and summarize your findings in ~3 complete sentences.**
 
 ```{r}
 #| label: exploring-demographics-of-instructors
-# code chunk for Q7
+teacher_demo <- teacher_evals_clean |> 
+  select(teacher_id, academic_degree, seniority, sex) |> 
+  distinct(teacher_id, .keep_all = TRUE)
 
+teacher_demo |> count(academic_degree) 
+teacher_demo |> count(seniority) 
+teacher_demo |> count(sex)
 ```
+
+> Among the instructors in the study, 134 are female and 160 are male. Of these 
+instructors, 168 have received a doctorate degree, 75 received a master's degree, 
+43 received no degree, and 8 received are professors. Seniority ranges from 1 
+to 10, with the most years for instructors being 2 years. 
+
 
 **9. Each course seems to have used a different subset of the nine evaluation questions. How many teacher-course combinations asked all nine questions?**
 
 ```{r}
 #| label: teacher-course-asked-every-question
-# code chunk for Q8
+teacher_evals_clean |> 
+  group_by(teacher_id, course_id) |> 
+  summarise(number_questions = n_distinct(question_no)) |> 
+  filter(number_questions == 9)
 
 ```
+
+> There are 48 teacher-course combinations that asked all nine questions. 
+
 
 ## Rate my Professor
 
@@ -207,22 +226,53 @@ included in the `teacher_evals_codebook.pdf`.
 
 ```{r}
 #| label: question-1-high-low
-# code chunk for Q9
+teacher_evals_clean |> 
+  filter(question_no == "901") |>
+  group_by(teacher_id) |> 
+  summarise(avg_rating = mean(SET_score_avg, na.rm = TRUE)) |> 
+  ungroup() |> 
+  arrange(desc(avg_rating)) |> 
+  slice(c(1, 264))
 
 ```
+
+> Instructor with ID number 100131 had the highest average rating for question 
+1 across all courses while instructor 54201 had an the lowest average rating of 
+1 across all courses.
+
 
 **11. Which instructors with one year of experience had the highest and lowest average percentage of students failing in the current semester across all their courses?**
 
 ```{r}
 #| label: one-year-experience-failing-students
-# code chunk for Q10
+teacher_evals_clean |> 
+  filter(seniority == "1") |>
+  group_by(teacher_id) |> 
+  summarise(avg_percent_fail = mean(percent_failed_cur, na.rm = TRUE)) |> 
+  ungroup() |> 
+  arrange(desc(avg_percent_fail)) |> 
+  slice(c(1, 33))
 
 ```
+
+> The instructors that had one year of experience with the highest average percentage of students failing in the current semester with 68% was instructor 106692. The instructor with the lowest average percentage of students failing in the current semester was 98651 with 0%. 
+
 
 **12. Which female instructors with either a doctorate or professional degree had the highest and lowest average percent of students responding to the evaluation across all their courses?**
 
 ```{r}
 #| label: female-instructor-student-response
-# code chunk for Q11
+teacher_evals_clean |> 
+  filter(sex == "female" | academic_degree == c("doctorate", "professional")) |>
+  group_by(teacher_id) |> 
+  summarise(avg_resp_share = mean(resp_share, na.rm = TRUE)) |> 
+  ungroup() |> 
+  arrange(desc(avg_resp_share)) |> 
+  slice(c(1, 134))
 
 ```
+
+> Female instructors with either a doctorate or professional degree that had 
+the highest and lowest average percent of students responding to the 
+evaluation across all their courses were 62895 (0.714) and 59338 (0.014).
+
