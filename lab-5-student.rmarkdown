@@ -1,0 +1,304 @@
+---
+title: "Lab 5: Student Evaluations of Teaching"
+author: "Catalina Dorado"
+date: "March 21, 2025"
+format: gfm
+execute:
+  message: false
+  warning: false
+  embed-resources: true
+  code-tools: true
+  echo: true
+---
+
+
+In this lab, we will be using the `dplyr` package to explore student evaluations
+of teaching data. 
+
+**You are expected to use functions from `dplyr` to do your data manipulation!**
+
+# Part 1: GitHub Workflow
+
+Now that you have the Lab 5 repository cloned, you need to make sure you can 
+successfully push to GitHub. 
+
+# Part 2: Some Words of Advice
+
+## Setting Up Your Code Chunks
+
+-   The first chunk of this Quarto document should be used to *declare your libraries* (probably only `tidyverse` for now).
+-   The second chunk of your Quarto document should be to *load in your data*.
+
+## Save Regularly, Render Often
+
+-   Be sure to **save** your work regularly.
+-   Be sure to **render** your file every so often, to check for errors and make
+sure it looks nice.
+    -   Make sure your Quarto document does not contain `View(dataset)` or `install.packages("package")`, both of these will prevent rendering.
+    -   Check your Quarto document for occasions when you looked at the data by
+    typing the name of the data frame. Leaving these in means the whole dataset
+    will print out and this looks unprofessional. **Remove these!**
+    -   If all else fails, you can set your execution options to `error: true`,
+    which will allow the file to render even if errors are present.
+
+# Part 3: Let's Start Working with the Data!
+
+## The Data
+
+The `teacher_evals` dataset contains student evaluations of reaching (SET)
+collected from students at a University in Poland. There are SET surveys from 
+students in all fields and all levels of study offered by the university.
+
+The SET questionnaire that every student at this university completes is as
+follows:
+
+> Evaluation survey of the teaching staff of University of Poland. Please
+> complete the following evaluation form, which aims to assess the lecturer’s
+> performance. Only one answer should be indicated for each question. The
+> answers are coded in the following way: 5 - I strongly agree; 4 - I agree;
+> 3 - Neutral; 2 - I don’t agree; 1 - I strongly don’t agree.
+>
+> Question 1: I learned a lot during the course.
+>
+> Question 2: I think that the knowledge acquired during the course is very
+> useful.
+>
+> Question 3: The professor used activities to make the class more engaging.
+>
+> Question 4: If it was possible, I would enroll for a course conducted by this
+> lecturer again.
+>
+> Question 5: The classes started on time.
+>
+> Question 6: The lecturer always used time efficiently.
+>
+> Question 7: The lecturer delivered the class content in an understandable and
+> efficient way.
+>
+> Question 8: The lecturer was available when we had doubts.
+>
+> Question 9. The lecturer treated all students equally regardless of their
+> race, background and ethnicity.
+
+These data are from the end of the winter semester of the 2020-2021 academic
+year. In the period of data collection, all university classes were entirely
+online amid the COVID-19 pandemic. While expected learning outcomes were not
+changed, the online mode of study could have affected grading policies and could
+have implications for data.
+
+**Average SET scores** were combined with many other variables, including:
+
+1.  **characteristics of the teacher** (degree, seniority, gender, SET scores in
+the past 6 semesters).
+2.  **characteristics of the course** (time of day, day of the week, course
+type, course breadth, class duration, class size).
+3.  **percentage of students providing SET feedback.**
+4.  **course grades** (mean, standard deviation, percentage failed for the
+current course and previous 6 semesters).
+
+This rich dataset allows us to **investigate many of the biases in student evaluations of teaching** that have been reported in the literature and to formulate new
+hypotheses.
+
+Before tackling the problems below, study the description of each variable
+included in the `teacher_evals_codebook.pdf`.
+
+**1. Load the appropriate R packages for your analysis.**
+
+
+```{r}
+#| label: setup
+library(tidyverse)
+```
+
+
+**2. Load in the `teacher_evals` data.** 
+
+
+```{r}
+#| label: load-data
+evals <- read.csv("~/Documents/STATS_210_Spring_25/Labs/week9_lab5/data-raw/teacher_evals.csv")
+```
+
+
+### Data Inspection + Summary
+
+**3. Provide a brief overview (~4 sentences) of the dataset.**
+
+
+```{r}
+#| label: explore-data
+dim(evals)
+summary(evals)
+```
+
+
+> This dataset contains student evaluations collected from students at a 
+University in Poland. There are 22 variables included in the dataset with 
+8,015 observations. Data types include characters, integers, and doubles. 
+Student grades show to have the most variables associated it.
+
+
+**4. What is the unit of observation (i.e. a single row in the dataset) identified by?**
+
+
+```{r}
+evals
+```
+
+
+> A single row in the dataset represents a summary of responses for all students for a particular course, teacher, and question. 
+
+
+**5. Use _one_ `dplyr` pipeline to clean the data by:**
+
+- **renaming the `gender` variable `sex`**
+- **removing all courses with fewer than 10 respondents**
+- **changing data types in whichever way you see fit (e.g., is the instructor ID really a numeric data type?)**
+- **only keeping the columns we will use -- `course_id`, `teacher_id`, `question_no`, `no_participants`, `resp_share`, `SET_score_avg`, `percent_failed_cur`, `academic_degree`, `seniority`, and `sex`**
+
+**Assign your cleaned data to a new variable named `teacher_evals_clean` –- use these data going forward. Save the data as `teacher_evals_clean.csv` in the `data-clean` folder.**
+
+
+```{r}
+#| label: data-cleaning
+teacher_evals_clean <- evals |>
+  rename(sex = gender) |> 
+  filter(no_participants > 10) |>
+  mutate(teacher_id = as.character(teacher_id)) |>
+  select(course_id, teacher_id, question_no, no_participants, resp_share, 
+         SET_score_avg, percent_failed_cur, academic_degree, seniority, sex) 
+
+write_csv(teacher_evals_clean, "~/Documents/STATS_210_Spring_25/Labs/week9_lab5/data-clean/
+teacher_evals_clean.csv")
+```
+
+
+
+**6. How many unique instructors and unique courses are present in the cleaned dataset?**
+
+
+```{r}
+#| label: unique-courses
+n_distinct(teacher_evals_clean$teacher_id)
+n_distinct(teacher_evals_clean$course_id)
+```
+
+
+> There are 294 unique instructors and 921 unique courses present in 
+the cleaned dataset.
+
+
+**7. One teacher-course combination has some missing values, coded as `NA`. Which instructor has these missing values? Which course? What variable are the missing values in?**
+
+
+```{r}
+#| label: uncovering-missing-values
+teacher_evals_clean |> 
+  filter(if_any(everything(), is.na))
+```
+
+
+> Instructor with ID 56347 has missing values in the dataset for the course ID 
+PAB3SE004PA. These missing values appear for the `percent_failed_cur` variable. 
+
+
+**8. What are the demographics of the instructors in this study? Investigate the variables `academic_degree`, `seniority`, and `sex` and summarize your findings in ~3 complete sentences.**
+
+
+```{r}
+#| label: exploring-demographics-of-instructors
+teacher_demo <- teacher_evals_clean |> 
+  select(teacher_id, academic_degree, seniority, sex) |> 
+  distinct(teacher_id, .keep_all = TRUE)
+
+teacher_demo |> count(academic_degree) 
+teacher_demo |> count(seniority) 
+teacher_demo |> count(sex)
+```
+
+
+> Among the instructors in the study, 134 are female and 160 are male. Of these 
+instructors, 168 have received a doctorate degree, 75 received a master's degree, 
+43 received no degree, and 8 received are professors. Seniority ranges from 1 
+to 10, with the most years for instructors being 2 years. 
+
+
+**9. Each course seems to have used a different subset of the nine evaluation questions. How many teacher-course combinations asked all nine questions?**
+
+
+```{r}
+#| label: teacher-course-asked-every-question
+teacher_evals_clean |> 
+  group_by(teacher_id, course_id) |> 
+  summarise(number_questions = n_distinct(question_no)) |> 
+  filter(number_questions == 9)
+
+```
+
+
+> There are 48 teacher-course combinations that asked all nine questions. 
+
+
+## Rate my Professor
+
+**10. Which instructors had the highest and lowest average rating for Question 1 (I learnt a lot during the course.) across all their courses?**
+
+
+```{r}
+#| label: question-1-high-low
+teacher_evals_clean |> 
+  filter(question_no == "901") |>
+  group_by(teacher_id) |> 
+  summarise(avg_rating = mean(SET_score_avg, na.rm = TRUE)) |> 
+  ungroup() |> 
+  arrange(desc(avg_rating)) |> 
+  slice(c(1, 264))
+
+```
+
+
+> Instructor with ID number 100131 had the highest average rating for question 
+1 across all courses while instructor 54201 had an the lowest average rating of 
+1 across all courses.
+
+
+**11. Which instructors with one year of experience had the highest and lowest average percentage of students failing in the current semester across all their courses?**
+
+
+```{r}
+#| label: one-year-experience-failing-students
+teacher_evals_clean |> 
+  filter(seniority == "1") |>
+  group_by(teacher_id) |> 
+  summarise(avg_percent_fail = mean(percent_failed_cur, na.rm = TRUE)) |> 
+  ungroup() |> 
+  arrange(desc(avg_percent_fail)) |> 
+  slice(c(1, 33))
+
+```
+
+
+> The instructors that had one year of experience with the highest average percentage of students failing in the current semester with 68% was instructor 106692. The instructor with the lowest average percentage of students failing in the current semester was 98651 with 0%. 
+
+
+**12. Which female instructors with either a doctorate or professional degree had the highest and lowest average percent of students responding to the evaluation across all their courses?**
+
+
+```{r}
+#| label: female-instructor-student-response
+teacher_evals_clean |> 
+  filter(sex == "female" | academic_degree == c("doctorate", "professional")) |>
+  group_by(teacher_id) |> 
+  summarise(avg_resp_share = mean(resp_share, na.rm = TRUE)) |> 
+  ungroup() |> 
+  arrange(desc(avg_resp_share)) |> 
+  slice(c(1, 134))
+
+```
+
+
+> Female instructors with either a doctorate or professional degree that had 
+the highest and lowest average percent of students responding to the 
+evaluation across all their courses were 62895 (0.714) and 59338 (0.014).
+
+
